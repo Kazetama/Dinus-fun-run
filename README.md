@@ -10,8 +10,10 @@
 
 ## ✨ Fitur Utama
 
-- **🤖 Real-time Pose Detection**: Menggunakan model YOLOv8-Pose yang ringan dan sangat akurat.
-- **👥 Multi-player Battle**: Mendukung balapan dua pemain (Layar terpisah kiri & kanan).
+- **🤖 Real-time Pose Detection**: Menggunakan model YOLOv8-Pose yang ringan dan sangat akurat (fokus pada pergerakan bahu untuk stabilitas maksimal di webcam).
+- **🎮 Mode Bermain**: 
+  - **Player vs Player (PvP)**: Balapan dua pemain (Layar terpisah kiri & kanan).
+  - **Player vs AI (PvE)**: Bermain melawan komputer dengan *Dynamic Rubber-Banding AI* yang otomatis menyesuaikan tingkat kesulitan berdasarkan skormu!
 - **🎨 Premium UI/UX**: Antarmuka modern dengan Dark Mode, Glassmorphism, dan animasi halus.
 - **🏃‍♂️ Animated Progress Bar**: Indikator lari interaktif menggunakan animasi video (.webm) dengan background transparan.
 - **🔊 Audio Feedback**: Efek suara dinamis saat mulai (GO), melompat, dan saat menang.
@@ -66,9 +68,9 @@ python run.py
 ```
 
 ### Tips Bermain:
-1. Pastikan seluruh tubuh (terutama kaki/mata kaki) terlihat di kamera.
+1. Pastikan area bahu/dada terlihat jelas di kamera.
 2. Pastikan pencahayaan ruangan cukup baik agar AI dapat mendeteksi pose dengan stabil.
-3. Lompatlah setinggi mungkin (minimal 40 pixel di layar) untuk mendapatkan poin!
+3. Lakukan gerakan melompat (atau berjingkat dengan cepat) agar bahumu naik-turun dan terdeteksi sebagai 1 poin!
 
 ---
 

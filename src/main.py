@@ -8,8 +8,9 @@ from collections import defaultdict, deque
 
 from PySide6.QtWidgets import (
     QApplication, QLabel, QPushButton,
-    QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy
+    QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy, QStackedWidget, QSpacerItem
 )
+import random
 from PySide6.QtGui import QImage, QPixmap, QPainter, QColor, QLinearGradient, QFont, QBrush, QPen
 from PySide6.QtCore import QTimer, Qt, QUrl, QPointF
 from PySide6.QtMultimedia import QSoundEffect
@@ -24,9 +25,9 @@ IMAGE_DIR = os.path.join(BASE_DIR, "assets", "images")
 HISTORY_LEN = 5
 FINISH_SCORE = 20
 
-MIN_RISE = 15
-MIN_JUMP = 40
-MIN_FALL = 15
+MIN_RISE = 10
+MIN_JUMP = 25
+MIN_FALL = 10
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = YOLO(MODEL_PATH)
@@ -80,56 +81,44 @@ class JumpApp(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.cap = cv2.VideoCapture(0)
-        # Set camera resolution to widescreen (16:9) to minimize stretching
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        self.setWindowTitle("Jump Battle Race | Premium Edition")
+        self.apply_styles()
 
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_frame)
+        self.game_mode = "PVP" # "PVP" or "AI"
         
-        # Start camera preview immediately
-        self.timer.start(50)
-        
+        # Game State Variables
         self.is_playing = False
-
-        # COUNTDOWN
         self.countdown = None
-        self.countdown_timer = QTimer()
-        self.countdown_timer.timeout.connect(self.update_countdown)
-
-        # TIMER PER PLAYER
         self.left_start_time = None
         self.right_start_time = None
         self.left_time = 0
         self.right_time = 0
+        self.left_score = 0
+        self.right_score = 0
+        self.winner = None
+        self.data_store = {}
+        self.history_y = defaultdict(lambda: deque(maxlen=HISTORY_LEN))
+        self.current_frame = None
 
-        # SOUND
+        # AI Variables
+        self.ai_last_jump_time = 0
+        self.ai_target_cooldown = 1.0
+
+        # Assets
         self.snd_go = QSoundEffect()
         self.snd_jump = QSoundEffect()
         self.snd_finish = QSoundEffect()
-
         self.snd_go.setSource(QUrl.fromLocalFile(os.path.join(AUDIO_DIR, "go.wav")))
         self.snd_jump.setSource(QUrl.fromLocalFile(os.path.join(AUDIO_DIR, "jump.wav")))
         self.snd_finish.setSource(QUrl.fromLocalFile(os.path.join(AUDIO_DIR, "finish.wav")))
-
         self.snd_go.setVolume(0.5)
         self.snd_jump.setVolume(0.5)
         self.snd_finish.setVolume(0.7)
 
-        self.data_store = {}
-        self.history_y = defaultdict(lambda: deque(maxlen=HISTORY_LEN))
-
-        self.left_score = 0
-        self.right_score = 0
-        self.winner = None
-
-        self.current_frame = None
-
         self.icon1 = QPixmap(os.path.join(IMAGE_DIR, "nl.png"))
         self.icon2 = QPixmap(os.path.join(IMAGE_DIR, "nl.png"))
         self.icon_size = 140
-
+        
         self.running_frames = []
         self.current_frame_idx = 0
         webm_path = os.path.join(IMAGE_DIR, "runing.webm")
@@ -152,6 +141,70 @@ class JumpApp(QWidget):
         self.icon_happy = os.path.join(IMAGE_DIR, "happy.png")
         self.icon_sad = os.path.join(IMAGE_DIR, "sad.png")
 
+        # Camera
+        self.cap = cv2.VideoCapture(0)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+        # Timers
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_frame)
+        self.timer.start(50)
+
+        self.countdown_timer = QTimer()
+        self.countdown_timer.timeout.connect(self.update_countdown)
+
+        # Build UI
+        self.stacked_widget = QStackedWidget()
+        
+        self.menu_page = self.create_menu_page()
+        self.game_page = self.create_game_page()
+
+        self.stacked_widget.addWidget(self.menu_page)
+        self.stacked_widget.addWidget(self.game_page)
+
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(self.stacked_widget)
+        self.setLayout(main_layout)
+
+    def create_menu_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setAlignment(Qt.AlignCenter)
+        
+        title = QLabel("JUMP BATTLE RACE")
+        title.setStyleSheet("font-size: 64px; font-weight: bold; color: #00f2ff; margin-bottom: 10px;")
+        title.setAlignment(Qt.AlignCenter)
+        
+        subtitle = QLabel("Premium Edition")
+        subtitle.setStyleSheet("font-size: 24px; color: #aaaaaa; margin-bottom: 50px;")
+        subtitle.setAlignment(Qt.AlignCenter)
+        
+        btn_pvp = QPushButton("👥 Player vs Player")
+        btn_pvp.setFixedSize(300, 60)
+        btn_pvp.setStyleSheet("font-size: 20px;")
+        btn_pvp.clicked.connect(lambda: self.enter_game("PVP"))
+        
+        btn_ai = QPushButton("🤖 Player vs AI")
+        btn_ai.setFixedSize(300, 60)
+        btn_ai.setStyleSheet("font-size: 20px;")
+        btn_ai.clicked.connect(lambda: self.enter_game("AI"))
+        
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
+        layout.addWidget(btn_pvp, 0, Qt.AlignHCenter)
+        layout.addSpacing(20)
+        layout.addWidget(btn_ai, 0, Qt.AlignHCenter)
+        
+        return page
+
+    def create_game_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setObjectName("videoLabel")
@@ -163,26 +216,27 @@ class JumpApp(QWidget):
         self.race_label.setObjectName("raceLabel")
         self.race_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
 
-        self.apply_styles()
-
         btn_play = QPushButton("▶ Play")
         btn_pause = QPushButton("⏸ Pause")
         btn_reset = QPushButton("🔄 Reset")
-        btn_capture_window = QPushButton("📷 Open Capture Window")
+        btn_capture = QPushButton("📷 Capture")
+        btn_back = QPushButton("🚪 Back to Menu")
 
         btn_play.clicked.connect(self.start)
         btn_pause.clicked.connect(self.stop)
         btn_reset.clicked.connect(self.reset)
-        btn_capture_window.clicked.connect(self.open_capture_window)
+        btn_capture.clicked.connect(self.open_capture_window)
+        btn_back.clicked.connect(self.exit_game)
 
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(15)
         btn_layout.addWidget(btn_play)
         btn_layout.addWidget(btn_pause)
         btn_layout.addWidget(btn_reset)
-        btn_layout.addWidget(btn_capture_window)
+        btn_layout.addWidget(btn_capture)
+        btn_layout.addStretch()
+        btn_layout.addWidget(btn_back)
 
-        # Container for video and buttons with rounded corners
         main_container = QWidget()
         main_container.setObjectName("mainContainer")
         container_layout = QVBoxLayout(main_container)
@@ -190,16 +244,9 @@ class JumpApp(QWidget):
         container_layout.addWidget(self.video_label)
         container_layout.addLayout(btn_layout)
 
-        layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
         layout.addWidget(self.race_label)
         layout.addWidget(main_container)
 
-        self.setLayout(layout)
-        self.setWindowTitle("Jump Battle Race | Premium Edition")
-        
-        # Add Shadows
         for widget in [self.race_label, main_container]:
             shadow = QGraphicsDropShadowEffect()
             shadow.setBlurRadius(25)
@@ -207,8 +254,17 @@ class JumpApp(QWidget):
             shadow.setOffset(0, 5)
             widget.setGraphicsEffect(shadow)
 
-        # Initialize UI visually
         self.update_race()
+        return page
+
+    def enter_game(self, mode):
+        self.game_mode = mode
+        self.reset()
+        self.stacked_widget.setCurrentWidget(self.game_page)
+        
+    def exit_game(self):
+        self.stop()
+        self.stacked_widget.setCurrentWidget(self.menu_page)
 
     def apply_styles(self):
         self.setStyleSheet("""
@@ -366,7 +422,8 @@ class JumpApp(QWidget):
         painter.setPen(QColor(255, 255, 255))
         painter.setFont(QFont("Segoe UI", 10, QFont.Bold))
         painter.drawText(20, y1 - 15, f"PLAYER 1: {self.left_score}")
-        painter.drawText(20, y2 - 15, f"PLAYER 2: {self.right_score}")
+        right_name = "AI OPPONENT" if getattr(self, 'game_mode', 'PVP') == "AI" else "PLAYER 2"
+        painter.drawText(20, y2 - 15, f"{right_name}: {self.right_score}")
 
         painter.end()
         self.race_label.setPixmap(pix)
@@ -381,6 +438,26 @@ class JumpApp(QWidget):
         if hasattr(self, 'running_frames') and self.running_frames:
             self.current_frame_idx = (self.current_frame_idx + 1) % len(self.running_frames)
             self.update_race()
+
+        # AI LOGIC
+        if getattr(self, 'game_mode', 'PVP') == "AI" and self.is_playing:
+            now = time.time()
+            if now - self.ai_last_jump_time > self.ai_target_cooldown:
+                self.right_score += 1
+                self.snd_jump.play()
+                self.update_race()
+                self.ai_last_jump_time = now
+                
+                # Dynamic Difficulty (Rubber Banding)
+                diff = self.left_score - self.right_score
+                base = random.uniform(0.7, 1.2) # AI naturally jumps every 0.7-1.2s
+                adjustment = diff * 0.1 # if player leads by 5, adjustment = 0.5s faster
+                self.ai_target_cooldown = max(0.4, base - adjustment)
+                
+                if self.right_score >= FINISH_SCORE:
+                    self.winner = "AI OPPONENT WIN"
+                    self.snd_finish.play()
+                    self.stop()
 
         frame = cv2.flip(frame, 1)
         h, w, _ = frame.shape
@@ -404,21 +481,21 @@ class JumpApp(QWidget):
 
             players = []
 
-            # ambil semua kandidat player (berdasarkan kaki)
+            # ambil semua kandidat player (berdasarkan bahu agar lebih stabil di webcam)
             for i, kp in enumerate(keypoints):
-                la, ra = kp[15], kp[16]
-                conf = (confidences[i][15] + confidences[i][16]) / 2
+                ls, rs = kp[5], kp[6]
+                conf = (confidences[i][5] + confidences[i][6]) / 2
 
-                if (la == 0).all() and (ra == 0).all():
+                if (ls == 0).all() and (rs == 0).all():
                     continue
 
-                if (la == 0).all():
-                    cx, cy = ra
-                elif (ra == 0).all():
-                    cx, cy = la
+                if (ls == 0).all():
+                    cx, cy = rs
+                elif (rs == 0).all():
+                    cx, cy = ls
                 else:
-                    cx = (la[0] + ra[0]) / 2
-                    cy = (la[1] + ra[1]) / 2
+                    cx = (ls[0] + rs[0]) / 2
+                    cy = (ls[1] + rs[1]) / 2
 
                 players.append((cx, cy, conf))
 
@@ -440,6 +517,8 @@ class JumpApp(QWidget):
             }
 
             for side, player in tracked.items():
+                if getattr(self, 'game_mode', 'PVP') == "AI" and side == "right":
+                    continue
                 if player is None:
                     continue
 
@@ -502,7 +581,7 @@ class JumpApp(QWidget):
                                 self.stop()
 
                             elif self.right_score >= FINISH_SCORE:
-                                self.winner = "PLAYER 2 WIN"
+                                self.winner = "AI OPPONENT WIN" if getattr(self, 'game_mode', 'PVP') == "AI" else "PLAYER 2 WIN"
                                 self.snd_finish.play()
                                 self.stop()
 
@@ -548,7 +627,7 @@ class JumpApp(QWidget):
                 if self.left_score >= FINISH_SCORE:
                     self.winner = "PLAYER 1 WIN"
                 elif self.right_score >= FINISH_SCORE:
-                    self.winner = "PLAYER 2 WIN"
+                    self.winner = "AI OPPONENT WIN" if getattr(self, 'game_mode', 'PVP') == "AI" else "PLAYER 2 WIN"
 
             if self.winner:
                 left_pos = (int(w * 0.25), int(h * 0.5))
