@@ -43,7 +43,7 @@ class CaptureWindow(QWidget):
 
         self.label = QLabel()
         self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("background:black;")
+        self.label.setStyleSheet("background:#f0f0f0;")
 
         self.btn_capture = QPushButton("Capture")
         self.btn_capture.clicked.connect(self.capture_image)
@@ -191,11 +191,11 @@ class JumpApp(QWidget):
         layout.setAlignment(Qt.AlignCenter)
         
         title = QLabel("JUMP BATTLE RACE")
-        title.setStyleSheet("font-size: 64px; font-weight: bold; color: #00f2ff; margin-bottom: 5px;")
+        title.setObjectName("mainTitle")
         title.setAlignment(Qt.AlignCenter)
         
-        subtitle = QLabel("Premium Edition")
-        subtitle.setStyleSheet("font-size: 20px; color: #aaaaaa; margin-bottom: 50px;")
+        subtitle = QLabel("🌟 Fun & Cute Edition 🌟")
+        subtitle.setObjectName("subTitle")
         subtitle.setAlignment(Qt.AlignCenter)
         
         btn_pvp = QPushButton("👥 Player vs Player")
@@ -223,8 +223,8 @@ class JumpApp(QWidget):
         layout.setAlignment(Qt.AlignCenter)
         layout.setContentsMargins(50, 50, 50, 50)
 
-        self.selection_title = QLabel("CHARACTER SELECTION")
-        self.selection_title.setStyleSheet("font-size: 48px; font-weight: bold; color: #00f2ff; margin-bottom: 50px;")
+        self.selection_title = QLabel("✨ CHOOSE YOUR CHARACTER ✨")
+        self.selection_title.setStyleSheet("font-size: 42px; font-weight: 900; color: #ff6b81; margin-bottom: 40px;")
         self.selection_title.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.selection_title)
         
@@ -238,7 +238,7 @@ class JumpApp(QWidget):
         
         # VS Text
         self.vs_label = QLabel("VS")
-        self.vs_label.setStyleSheet("font-size: 64px; font-weight: bold; color: rgba(255,255,255,0.1);")
+        self.vs_label.setStyleSheet("font-size: 64px; font-weight: 900; color: #ff9eb0;")
         panels_layout.addWidget(self.vs_label)
         
         # Player 2 Panel
@@ -267,7 +267,7 @@ class JumpApp(QWidget):
         layout.setAlignment(Qt.AlignCenter)
         
         title = QLabel(f"PLAYER {player_num}" if player_num == 1 else "PLAYER 2")
-        title.setStyleSheet("font-size: 28px; font-weight: bold; color: #ffffff; margin-bottom: 20px;")
+        title.setStyleSheet("font-size: 28px; font-weight: 900; color: #ff6b81; margin-bottom: 20px;")
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
         
@@ -283,7 +283,7 @@ class JumpApp(QWidget):
         m_img.setPixmap(QPixmap(os.path.join(IMAGE_DIR, "cowok", "neutral.png")).scaled(110, 110, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         m_img.setAlignment(Qt.AlignCenter)
         m_text = QLabel("COWOK")
-        m_text.setStyleSheet("font-weight: bold; font-size: 16px; background: transparent; color: white;")
+        m_text.setStyleSheet("font-weight: 900; font-size: 16px; background: transparent; color: #4a4a4a;")
         m_text.setAlignment(Qt.AlignCenter)
         m_vbox.addWidget(m_img)
         m_vbox.addWidget(m_text)
@@ -298,7 +298,7 @@ class JumpApp(QWidget):
         f_img.setPixmap(QPixmap(os.path.join(IMAGE_DIR, "cewek", "neutral.jpeg")).scaled(110, 110, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         f_img.setAlignment(Qt.AlignCenter)
         f_text = QLabel("CEWEK")
-        f_text.setStyleSheet("font-weight: bold; font-size: 16px; background: transparent; color: white;")
+        f_text.setStyleSheet("font-weight: 900; font-size: 16px; background: transparent; color: #4a4a4a;")
         f_text.setAlignment(Qt.AlignCenter)
         f_vbox.addWidget(f_img)
         f_vbox.addWidget(f_text)
@@ -310,9 +310,9 @@ class JumpApp(QWidget):
         
         for btn in [btn_male, btn_female]:
             shadow = QGraphicsDropShadowEffect()
-            shadow.setBlurRadius(20)
-            shadow.setColor(QColor(0, 0, 0, 150))
-            shadow.setOffset(0, 6)
+            shadow.setBlurRadius(15)
+            shadow.setColor(QColor(255, 182, 193, 100))
+            shadow.setOffset(0, 5)
             btn.setGraphicsEffect(shadow)
 
         if player_num == 1:
@@ -381,10 +381,15 @@ class JumpApp(QWidget):
         self.race_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
 
         btn_play = QPushButton("▶ Play")
+        btn_play.setObjectName("actionBtn")
         btn_pause = QPushButton("⏸ Pause")
+        btn_pause.setObjectName("actionBtn")
         btn_reset = QPushButton("🔄 Reset")
+        btn_reset.setObjectName("actionBtn")
         btn_capture = QPushButton("📷 Capture")
+        btn_capture.setObjectName("actionBtn")
         btn_back = QPushButton("🚪 Back to Menu")
+        btn_back.setObjectName("actionBtn")
 
         btn_play.clicked.connect(self.start)
         btn_pause.clicked.connect(self.stop)
@@ -413,8 +418,8 @@ class JumpApp(QWidget):
 
         for widget in [self.race_label, main_container]:
             shadow = QGraphicsDropShadowEffect()
-            shadow.setBlurRadius(25)
-            shadow.setColor(QColor(0, 0, 0, 150))
+            shadow.setBlurRadius(20)
+            shadow.setColor(QColor(255, 182, 193, 100))
             shadow.setOffset(0, 5)
             widget.setGraphicsEffect(shadow)
 
@@ -433,50 +438,76 @@ class JumpApp(QWidget):
     def apply_styles(self):
         self.setStyleSheet("""
             QWidget {
-                background-color: #0d0d0d;
-                font-family: 'Segoe UI', sans-serif;
-                color: #ffffff;
+                background-color: #fdfbf7;
+                font-family: 'Comic Sans MS', 'Fredoka One', 'Varela Round', 'Segoe UI', sans-serif;
+                color: #4a4a4a;
             }
             #raceLabel, #mainContainer {
-                background-color: rgba(30, 30, 30, 0.6);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 15px;
+                background-color: #ffffff;
+                border: 3px solid #ffb6c1;
+                border-radius: 20px;
             }
             #videoLabel {
-                background-color: #000;
-                border-radius: 10px;
+                background-color: #f0f0f0;
+                border-radius: 15px;
+                border: 4px dashed #87cefa;
+            }
+            QPushButton {
+                color: #ffffff;
+                font-weight: bold;
+                border-radius: 15px;
             }
             QPushButton#modeBtn {
-                background-color: rgba(255, 255, 255, 0.05);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 10px;
-                padding: 10px 20px;
-                font-size: 18px;
-                font-weight: bold;
+                background-color: #ffb6c1;
+                border: 3px solid #ff9eb0;
+                padding: 15px 30px;
+                font-size: 20px;
+                color: white;
             }
             QPushButton#modeBtn:hover {
-                background-color: rgba(0, 242, 255, 0.1);
-                border: 1px solid #00f2ff;
-                color: #00f2ff;
+                background-color: #ff9eb0;
+                border: 3px solid #ff7a93;
+            }
+            QPushButton#actionBtn {
+                background-color: #87cefa;
+                border: 3px solid #63b8ff;
+                padding: 8px 15px;
+                font-size: 16px;
+                border-radius: 12px;
+            }
+            QPushButton#actionBtn:hover {
+                background-color: #63b8ff;
             }
             QPushButton#charBtn {
-                background-color: rgba(255, 255, 255, 0.03);
-                border: 2px solid rgba(255, 255, 255, 0.1);
-                border-radius: 20px;
+                background-color: #ffffff;
+                border: 4px solid #e0e0e0;
+                border-radius: 25px;
+                color: #4a4a4a;
             }
             QPushButton#charBtn:hover {
-                background-color: rgba(255, 255, 255, 0.08);
-                border: 2px solid rgba(255, 255, 255, 0.3);
+                background-color: #f0f8ff;
+                border: 4px solid #87cefa;
             }
             QPushButton#charBtnActive {
-                background-color: rgba(0, 242, 255, 0.15);
-                border: 3px solid #00f2ff;
-                border-radius: 20px;
+                background-color: #e6f2ff;
+                border: 4px solid #00a8ff;
+                border-radius: 25px;
+                color: #4a4a4a;
             }
             #selectionPanel {
-                background-color: rgba(255, 255, 255, 0.03);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                border-radius: 25px;
+                background-color: #ffffff;
+                border: 4px solid #ffd1dc;
+                border-radius: 30px;
+            }
+            QLabel#mainTitle {
+                color: #ff6b81;
+                font-size: 72px;
+                font-weight: 900;
+            }
+            QLabel#subTitle {
+                color: #a4b0be;
+                font-size: 24px;
+                font-weight: bold;
             }
         """)
 
@@ -565,24 +596,24 @@ class JumpApp(QWidget):
 
         # Background Bars
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(40, 40, 40, 150))
+        painter.setBrush(QColor(230, 230, 230))
         painter.drawRoundedRect(20, y1 - bar_h // 2, w - 40, bar_h, 7, 7)
         painter.drawRoundedRect(20, y2 - bar_h // 2, w - 40, bar_h, 7, 7)
 
-        # Player 1 Neon Bar (Cyan)
+        # Player 1 Bar (Cute Blue)
         grad1 = QLinearGradient(20, 0, w - 20, 0)
-        grad1.setColorAt(0, QColor(0, 242, 255, 50))
-        grad1.setColorAt(p1 if p1 > 0 else 0.01, QColor(0, 242, 255))
-        grad1.setColorAt(1, QColor(0, 242, 255, 20))
+        grad1.setColorAt(0, QColor(135, 206, 250))
+        grad1.setColorAt(p1 if p1 > 0 else 0.01, QColor(0, 168, 255))
+        grad1.setColorAt(1, QColor(135, 206, 250, 100))
         
         painter.setBrush(grad1)
         painter.drawRoundedRect(20, y1 - bar_h // 2, int((w - 40) * p1), bar_h, 7, 7)
 
-        # Player 2 Neon Bar (Electric Purple)
+        # Player 2 Bar (Cute Pink)
         grad2 = QLinearGradient(20, 0, w - 20, 0)
-        grad2.setColorAt(0, QColor(112, 0, 255, 50))
-        grad2.setColorAt(p2 if p2 > 0 else 0.01, QColor(112, 0, 255))
-        grad2.setColorAt(1, QColor(112, 0, 255, 20))
+        grad2.setColorAt(0, QColor(255, 182, 193))
+        grad2.setColorAt(p2 if p2 > 0 else 0.01, QColor(255, 107, 129))
+        grad2.setColorAt(1, QColor(255, 182, 193, 100))
 
         painter.setBrush(grad2)
         painter.drawRoundedRect(20, y2 - bar_h // 2, int((w - 40) * p2), bar_h, 7, 7)
@@ -605,7 +636,7 @@ class JumpApp(QWidget):
         painter.drawPixmap(int(20 + (w - 40) * p2) - icon2_px.width() // 2, y2 - icon2_px.height() // 2, icon2_px)
 
         # Labels
-        painter.setPen(QColor(255, 255, 255))
+        painter.setPen(QColor(74, 74, 74))
         painter.setFont(QFont("Segoe UI", 10, QFont.Bold))
         painter.drawText(20, y1 - 15, f"PLAYER 1: {self.left_score}")
         right_name = "AI OPPONENT" if getattr(self, 'game_mode', 'PVP') == "AI" else "PLAYER 2"
