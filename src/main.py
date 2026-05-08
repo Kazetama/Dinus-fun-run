@@ -22,7 +22,7 @@ MODEL_PATH = os.path.join(BASE_DIR, "models", "yolov8n-pose.pt")
 AUDIO_DIR = os.path.join(BASE_DIR, "assets", "audio")
 IMAGE_DIR = os.path.join(BASE_DIR, "assets", "images")
 
-HISTORY_LEN = 5
+HISTORY_LEN = 2
 FINISH_SCORE = 20
 
 MIN_RISE = 10
@@ -49,6 +49,8 @@ class CaptureWindow(QWidget):
         self.btn_capture.clicked.connect(self.capture_image)
 
         layout = QVBoxLayout()
+        layout.setContentsMargins(40, 20, 40, 20)
+        layout.setSpacing(10)
         layout.addWidget(self.label)
         layout.addWidget(self.btn_capture)
         self.setLayout(layout)
@@ -115,31 +117,18 @@ class JumpApp(QWidget):
         self.snd_jump.setVolume(0.5)
         self.snd_finish.setVolume(0.7)
 
-        self.icon1 = QPixmap(os.path.join(IMAGE_DIR, "nl.png"))
-        self.icon2 = QPixmap(os.path.join(IMAGE_DIR, "nl.png"))
         self.icon_size = 140
         
-        self.running_frames = []
+        # Player Assets
+        self.p1_data = {"gender": "cowok", "neutral": None, "running": [], "happy": None, "sad": None}
+        self.p2_data = {"gender": "cowok", "neutral": None, "running": [], "happy": None, "sad": None}
+        
+        # Load defaults to prevent crash before selection
+        self.load_player_assets(1, "cowok")
+        self.load_player_assets(2, "cowok")
+        
         self.current_frame_idx = 0
-        webm_path = os.path.join(IMAGE_DIR, "runing.webm")
-        if os.path.exists(webm_path):
-            cap_webm = cv2.VideoCapture(webm_path)
-            while True:
-                ret, wframe = cap_webm.read()
-                if not ret:
-                    break
-                import numpy as np
-                rgba = cv2.cvtColor(wframe, cv2.COLOR_BGR2RGBA)
-                black_pixels = (rgba[:, :, 0] < 30) & (rgba[:, :, 1] < 30) & (rgba[:, :, 2] < 30)
-                rgba[black_pixels, 3] = 0
-                rgba_copy = rgba.copy()
-                wh, ww, wch = rgba_copy.shape
-                wimg = QImage(rgba_copy.data, ww, wh, wch*ww, QImage.Format_RGBA8888)
-                self.running_frames.append(QPixmap.fromImage(wimg))
-            cap_webm.release()
-
-        self.icon_happy = os.path.join(IMAGE_DIR, "happy.png")
-        self.icon_sad = os.path.join(IMAGE_DIR, "sad.png")
+        self.selecting_player = 1 # 1 or 2
 
         # Camera
         self.cap = cv2.VideoCapture(0)
@@ -158,9 +147,11 @@ class JumpApp(QWidget):
         self.stacked_widget = QStackedWidget()
         
         self.menu_page = self.create_menu_page()
+        self.selection_page = self.create_selection_page()
         self.game_page = self.create_game_page()
 
         self.stacked_widget.addWidget(self.menu_page)
+        self.stacked_widget.addWidget(self.selection_page)
         self.stacked_widget.addWidget(self.game_page)
 
         main_layout = QVBoxLayout()
@@ -168,36 +159,139 @@ class JumpApp(QWidget):
         main_layout.addWidget(self.stacked_widget)
         self.setLayout(main_layout)
 
+    def load_player_assets(self, player_num, gender):
+        base_path = os.path.join(IMAGE_DIR, gender)
+        ext = "png" if gender == "cowok" else "jpeg"
+        
+        data = self.p1_data if player_num == 1 else self.p2_data
+        data["gender"] = gender
+        data["neutral"] = QPixmap(os.path.join(base_path, f"neutral.{ext}"))
+        data["happy"] = os.path.join(base_path, f"happy.{ext}")
+        data["sad"] = os.path.join(base_path, f"sad.{ext}")
+        
+        data["running"] = []
+        webm_path = os.path.join(base_path, "running.webm")
+        if os.path.exists(webm_path):
+            cap_webm = cv2.VideoCapture(webm_path)
+            while True:
+                ret, wframe = cap_webm.read()
+                if not ret: break
+                rgba = cv2.cvtColor(wframe, cv2.COLOR_BGR2RGBA)
+                black_pixels = (rgba[:, :, 0] < 30) & (rgba[:, :, 1] < 30) & (rgba[:, :, 2] < 30)
+                rgba[black_pixels, 3] = 0
+                rgba_copy = rgba.copy()
+                wh, ww, wch = rgba_copy.shape
+                wimg = QImage(rgba_copy.data, ww, wh, wch*ww, QImage.Format_RGBA8888)
+                data["running"].append(QPixmap.fromImage(wimg))
+            cap_webm.release()
+
     def create_menu_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setAlignment(Qt.AlignCenter)
         
         title = QLabel("JUMP BATTLE RACE")
-        title.setStyleSheet("font-size: 64px; font-weight: bold; color: #00f2ff; margin-bottom: 10px;")
+        title.setStyleSheet("font-size: 64px; font-weight: bold; color: #00f2ff; margin-bottom: 5px;")
         title.setAlignment(Qt.AlignCenter)
         
         subtitle = QLabel("Premium Edition")
-        subtitle.setStyleSheet("font-size: 24px; color: #aaaaaa; margin-bottom: 50px;")
+        subtitle.setStyleSheet("font-size: 20px; color: #aaaaaa; margin-bottom: 50px;")
         subtitle.setAlignment(Qt.AlignCenter)
         
         btn_pvp = QPushButton("👥 Player vs Player")
-        btn_pvp.setFixedSize(300, 60)
-        btn_pvp.setStyleSheet("font-size: 20px;")
-        btn_pvp.clicked.connect(lambda: self.enter_game("PVP"))
+        btn_pvp.setFixedSize(320, 70)
+        btn_pvp.setObjectName("modeBtn")
+        btn_pvp.clicked.connect(lambda: self.start_selection("PVP"))
         
         btn_ai = QPushButton("🤖 Player vs AI")
-        btn_ai.setFixedSize(300, 60)
-        btn_ai.setStyleSheet("font-size: 20px;")
-        btn_ai.clicked.connect(lambda: self.enter_game("AI"))
+        btn_ai.setFixedSize(320, 70)
+        btn_ai.setObjectName("modeBtn")
+        btn_ai.clicked.connect(lambda: self.start_selection("AI"))
         
         layout.addWidget(title)
         layout.addWidget(subtitle)
+        layout.addSpacing(20)
         layout.addWidget(btn_pvp, 0, Qt.AlignHCenter)
         layout.addSpacing(20)
         layout.addWidget(btn_ai, 0, Qt.AlignHCenter)
         
         return page
+
+    def create_selection_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setAlignment(Qt.AlignCenter)
+
+        self.selection_title = QLabel("PLAYER 1: SELECT CHARACTER")
+        self.selection_title.setStyleSheet("font-size: 32px; font-weight: bold; color: #ffffff; margin-bottom: 40px;")
+        self.selection_title.setAlignment(Qt.AlignCenter)
+        
+        char_layout = QHBoxLayout()
+        char_layout.setSpacing(50)
+        char_layout.setAlignment(Qt.AlignCenter)
+
+        # Male Character Card
+        btn_male = QPushButton()
+        btn_male.setFixedSize(220, 280)
+        btn_male.setObjectName("charBtn")
+        m_layout = QVBoxLayout(btn_male)
+        m_img = QLabel()
+        m_img.setPixmap(QPixmap(os.path.join(IMAGE_DIR, "cowok", "neutral.png")).scaled(160, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        m_img.setAlignment(Qt.AlignCenter)
+        m_text = QLabel("COWOK")
+        m_text.setStyleSheet("font-weight: bold; font-size: 18px; background: transparent;")
+        m_text.setAlignment(Qt.AlignCenter)
+        m_layout.addWidget(m_img)
+        m_layout.addWidget(m_text)
+        btn_male.clicked.connect(lambda: self.handle_char_selection("cowok"))
+
+        # Female Character Card
+        btn_female = QPushButton()
+        btn_female.setFixedSize(220, 280)
+        btn_female.setObjectName("charBtn")
+        f_layout = QVBoxLayout(btn_female)
+        f_img = QLabel()
+        f_img.setPixmap(QPixmap(os.path.join(IMAGE_DIR, "cewek", "neutral.jpeg")).scaled(160, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        f_img.setAlignment(Qt.AlignCenter)
+        f_text = QLabel("CEWEK")
+        f_text.setStyleSheet("font-weight: bold; font-size: 18px; background: transparent;")
+        f_text.setAlignment(Qt.AlignCenter)
+        f_layout.addWidget(f_img)
+        f_layout.addWidget(f_text)
+        btn_female.clicked.connect(lambda: self.handle_char_selection("cewek"))
+
+        char_layout.addWidget(btn_male)
+        char_layout.addWidget(btn_female)
+        
+        layout.addWidget(self.selection_title)
+        layout.addLayout(char_layout)
+        
+        return page
+
+    def start_selection(self, mode):
+        self.game_mode = mode
+        self.selecting_player = 1
+        self.selection_title.setText("PLAYER 1: SELECT CHARACTER")
+        self.stacked_widget.setCurrentWidget(self.selection_page)
+
+    def handle_char_selection(self, gender):
+        self.load_player_assets(self.selecting_player, gender)
+        
+        if self.game_mode == "PVP" and self.selecting_player == 1:
+            self.selecting_player = 2
+            self.selection_title.setText("PLAYER 2: SELECT CHARACTER")
+        else:
+            # If AI, Player 2 is default cowok if Player 1 is cewek, or vice-versa (optional logic)
+            if self.game_mode == "AI":
+                ai_gender = "cewek" if gender == "cowok" else "cowok"
+                self.load_player_assets(2, ai_gender)
+            
+            self.enter_game(self.game_mode)
+
+    def enter_game(self, mode):
+        self.game_mode = mode
+        self.reset()
+        self.stacked_widget.setCurrentWidget(self.game_page)
 
     def create_game_page(self):
         page = QWidget()
@@ -240,7 +334,7 @@ class JumpApp(QWidget):
         main_container = QWidget()
         main_container.setObjectName("mainContainer")
         container_layout = QVBoxLayout(main_container)
-        container_layout.setContentsMargins(10, 10, 10, 10)
+        container_layout.setContentsMargins(70, 25, 70, 25)
         container_layout.addWidget(self.video_label)
         container_layout.addLayout(btn_layout)
 
@@ -282,20 +376,32 @@ class JumpApp(QWidget):
                 background-color: #000;
                 border-radius: 10px;
             }
-            QPushButton {
+            QPushButton#modeBtn {
                 background-color: rgba(255, 255, 255, 0.05);
                 border: 1px solid rgba(255, 255, 255, 0.1);
                 border-radius: 10px;
                 padding: 10px 20px;
-                font-size: 14px;
+                font-size: 18px;
                 font-weight: bold;
             }
-            QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.15);
+            QPushButton#modeBtn:hover {
+                background-color: rgba(0, 242, 255, 0.1);
                 border: 1px solid #00f2ff;
+                color: #00f2ff;
             }
-            QPushButton#btn_play:hover {
-                background-color: rgba(0, 242, 255, 0.2);
+            QPushButton#charBtn {
+                background-color: rgba(255, 255, 255, 0.03);
+                border: 2px solid rgba(255, 255, 255, 0.1);
+                border-radius: 20px;
+            }
+            QPushButton#charBtn:hover {
+                background-color: rgba(255, 255, 255, 0.08);
+                border: 2px solid rgba(255, 255, 255, 0.3);
+            }
+            QPushButton#charBtnActive {
+                background-color: rgba(0, 242, 255, 0.1);
+                border: 3px solid #00f2ff;
+                border-radius: 20px;
             }
         """)
 
@@ -407,16 +513,21 @@ class JumpApp(QWidget):
         painter.drawRoundedRect(20, y2 - bar_h // 2, int((w - 40) * p2), bar_h, 7, 7)
 
         # Icons
-        if hasattr(self, 'running_frames') and self.running_frames:
-            current_icon = self.running_frames[self.current_frame_idx]
+        if self.p1_data["running"]:
+            icon1 = self.p1_data["running"][self.current_frame_idx]
         else:
-            current_icon = self.icon1
+            icon1 = self.p1_data["neutral"]
 
-        icon1 = current_icon.scaled(80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        icon2 = current_icon.scaled(80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        if self.p2_data["running"]:
+            icon2 = self.p2_data["running"][self.current_frame_idx]
+        else:
+            icon2 = self.p2_data["neutral"]
 
-        painter.drawPixmap(int(20 + (w - 40) * p1) - icon1.width() // 2, y1 - icon1.height() // 2, icon1)
-        painter.drawPixmap(int(20 + (w - 40) * p2) - icon2.width() // 2, y2 - icon2.height() // 2, icon2)
+        icon1_px = icon1.scaled(80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        icon2_px = icon2.scaled(80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        painter.drawPixmap(int(20 + (w - 40) * p1) - icon1_px.width() // 2, y1 - icon1_px.height() // 2, icon1_px)
+        painter.drawPixmap(int(20 + (w - 40) * p2) - icon2_px.width() // 2, y2 - icon2_px.height() // 2, icon2_px)
 
         # Labels
         painter.setPen(QColor(255, 255, 255))
@@ -435,9 +546,14 @@ class JumpApp(QWidget):
 
         self.current_frame = frame.copy()
 
-        if hasattr(self, 'running_frames') and self.running_frames:
-            self.current_frame_idx = (self.current_frame_idx + 1) % len(self.running_frames)
-            self.update_race()
+        # Update animation indices for both players
+        self.current_frame_idx += 1
+        if self.p1_data["running"] and self.current_frame_idx >= len(self.p1_data["running"]):
+            self.current_frame_idx = 0
+        if self.p2_data["running"] and self.current_frame_idx >= len(self.p2_data["running"]):
+            self.current_frame_idx = 0
+            
+        self.update_race()
 
         # AI LOGIC
         if getattr(self, 'game_mode', 'PVP') == "AI" and self.is_playing:
@@ -481,48 +597,105 @@ class JumpApp(QWidget):
 
             players = []
 
-            # ambil semua kandidat player (berdasarkan bahu agar lebih stabil di webcam)
+            # Extract boxes for depth/size estimation
+            boxes = None
+            if results[0].boxes is not None:
+                boxes = results[0].boxes.xywh.cpu().numpy()
+
+            players = []
+
+            # ambil semua kandidat player (berdasarkan kaki agar lebih fokus sesuai permintaan)
             for i, kp in enumerate(keypoints):
-                ls, rs = kp[5], kp[6]
-                conf = (confidences[i][5] + confidences[i][6]) / 2
-
-                if (ls == 0).all() and (rs == 0).all():
+                la, ra = kp[15], kp[16]
+                la_conf, ra_conf = confidences[i][15], confidences[i][16]
+                
+                # Cek apakah kaki (ankle) terdeteksi dengan confidence cukup
+                has_feet = (la_conf > 0.4 and not (la == 0).all()) or (ra_conf > 0.4 and not (ra == 0).all())
+                
+                if has_feet:
+                    if (la_conf > 0.4 and not (la == 0).all()) and (ra_conf > 0.4 and not (ra == 0).all()):
+                        # Pilih kaki yang posisinya paling bawah (Y paling besar) agar lompatan stabil
+                        # (Mencegah fake jump dengan hanya mengangkat 1 kaki)
+                        if la[1] > ra[1]:
+                            cx, cy = la
+                            conf = la_conf
+                        else:
+                            cx, cy = ra
+                            conf = ra_conf
+                    elif la_conf > 0.4 and not (la == 0).all():
+                        cx, cy = la
+                        conf = la_conf
+                    else:
+                        cx, cy = ra
+                        conf = ra_conf
+                else:
+                    # Fallback ke pinggul (hip) jika kaki tidak terdeteksi
+                    lh, rh = kp[11], kp[12]
+                    if not (lh == 0).all() and not (rh == 0).all():
+                        cx = (lh[0] + rh[0]) / 2
+                        cy = (lh[1] + rh[1]) / 2
+                        conf = (confidences[i][11] + confidences[i][12]) / 2
+                    elif not (lh == 0).all():
+                        cx, cy = lh
+                        conf = confidences[i][11]
+                    elif not (rh == 0).all():
+                        cx, cy = rh
+                        conf = confidences[i][12]
+                    else:
+                        cx, cy, conf = 0, 0, 0
+                
+                if cx == 0 and cy == 0:
                     continue
+                    
+                # Ukuran (height) dari bounding box untuk mengetahui siapa yang paling dekat dengan kamera
+                size = boxes[i][3] if boxes is not None else 0
+                
+                players.append({
+                    "cx": cx,
+                    "cy": cy,
+                    "conf": conf,
+                    "size": size,
+                    "has_feet": has_feet
+                })
 
-                if (ls == 0).all():
-                    cx, cy = rs
-                elif (rs == 0).all():
-                    cx, cy = ls
-                else:
-                    cx = (ls[0] + rs[0]) / 2
-                    cy = (ls[1] + rs[1]) / 2
+            # Pisahkan kandidat berdasarkan posisi kiri dan kanan
+            left_candidates = [p for p in players if p["cx"] < mid]
+            right_candidates = [p for p in players if p["cx"] >= mid]
 
-                players.append((cx, cy, conf))
-
-            # pilih hanya 1 kiri dan 1 kanan (paling dekat ke tengah)
-            left_player = None
-            right_player = None
-
-            for (cx, cy, conf) in players:
-                if cx < mid:
-                    if left_player is None or cx > left_player[0]:
-                        left_player = (cx, cy, conf)
-                else:
-                    if right_player is None or cx < right_player[0]:
-                        right_player = (cx, cy, conf)
+            # Pilih player yang ukurannya paling besar (paling dekat kamera / fokus ke user) di tengah keramaian
+            left_player = max(left_candidates, key=lambda p: p["size"]) if left_candidates else None
+            right_player = max(right_candidates, key=lambda p: p["size"]) if right_candidates else None
 
             tracked = {
                 "left": left_player,
                 "right": right_player
             }
 
-            for side, player in tracked.items():
+            for side, player_data in tracked.items():
                 if getattr(self, 'game_mode', 'PVP') == "AI" and side == "right":
                     continue
-                if player is None:
+                if player_data is None:
                     continue
 
-                cx, cy, conf = player
+                cx, cy, conf = player_data["cx"], player_data["cy"], player_data["conf"]
+                has_feet = player_data["has_feet"]
+                
+                # Jika kaki tidak terdeteksi, tampilkan alert peringatan dan jangan proses lompatan
+                if not has_feet:
+                    alert_text = "PERINGATAN: Kaki Tidak Terdeteksi!"
+                    text_size = cv2.getTextSize(alert_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+                    
+                    # Ensure alert text is within frame bounds
+                    alert_x = max(10, min(int(cx - text_size[0] // 2), w - text_size[0] - 10))
+                    alert_y = max(30, int(cy - 50))
+                    
+                    # Draw shadow for readability
+                    cv2.putText(frame, alert_text, (alert_x+1, alert_y+1), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 3)
+                    cv2.putText(frame, alert_text, (alert_x, alert_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    
+                    # Tetap gambar indikator targetnya
+                    cv2.circle(frame, (int(cx), int(cy)), 8, (0, 0, 255), -1)
+                    continue
 
                 self.history_y[side].append(cy)
                 if len(self.history_y[side]) < HISTORY_LEN:
@@ -544,7 +717,7 @@ class JumpApp(QWidget):
 
                 if side not in self.data_store:
                     self.data_store[side] = {
-                        "y": cy,
+                        "ground_y": cy,
                         "state": "ground",
                         "peak_y": cy
                     }
@@ -553,9 +726,14 @@ class JumpApp(QWidget):
                 d = self.data_store[side]
 
                 if d["state"] == "ground":
-                    if cy < d["y"] - MIN_RISE:
+                    # Adapt ground_y
+                    if cy > d["ground_y"]:
+                        d["ground_y"] = cy # Segera update jika kaki kembali menyentuh tanah (Y besar)
+                    else:
+                        d["ground_y"] = d["ground_y"] * 0.95 + cy * 0.05 # Perlahan ikuti gerakan kecil
+                        
+                    if cy < d["ground_y"] - MIN_RISE:
                         d["state"] = "up"
-                        d["start_y"] = cy
                         d["peak_y"] = cy
 
                 elif d["state"] == "up":
@@ -563,7 +741,8 @@ class JumpApp(QWidget):
                         d["peak_y"] = cy
 
                     if cy > d["peak_y"] + MIN_FALL:
-                        jump_height = d["start_y"] - d["peak_y"]
+                        # Hitung tinggi lompatan dari referensi ground_y yang stabil, bukan dari cy sesaat
+                        jump_height = d["ground_y"] - d["peak_y"]
 
                         if jump_height > MIN_JUMP and self.is_playing:
                             self.snd_jump.play()
@@ -586,8 +765,6 @@ class JumpApp(QWidget):
                                 self.stop()
 
                         d["state"] = "ground"
-
-                d["y"] = cy
 
                 # titik merah tetap muncul
                 cv2.circle(frame, (int(cx), int(cy)), 8, (0, 0, 255), -1)
@@ -634,16 +811,16 @@ class JumpApp(QWidget):
                 right_pos = (int(w * 0.75), int(h * 0.5))
 
                 if self.winner == "PLAYER 1 WIN":
-                    frame = self.overlay_icon(frame, self.icon_happy, *left_pos, 260)
-                    frame = self.overlay_icon(frame, self.icon_sad, *right_pos, 260)
+                    frame = self.overlay_icon(frame, self.p1_data["happy"], *left_pos, 260)
+                    frame = self.overlay_icon(frame, self.p2_data["sad"], *right_pos, 260)
 
                     cv2.putText(frame, "WIN", left_pos,
                                 cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 4)
                     cv2.putText(frame, "LOSE", right_pos,
                                 cv2.FONT_HERSHEY_SIMPLEX, 2, (100, 100, 100), 4)
                 else:
-                    frame = self.overlay_icon(frame, self.icon_sad, *left_pos, 260)
-                    frame = self.overlay_icon(frame, self.icon_happy, *right_pos, 260)
+                    frame = self.overlay_icon(frame, self.p1_data["sad"], *left_pos, 260)
+                    frame = self.overlay_icon(frame, self.p2_data["happy"], *right_pos, 260)
 
                     cv2.putText(frame, "LOSE", left_pos,
                                 cv2.FONT_HERSHEY_SIMPLEX, 2, (100, 100, 100), 4)
