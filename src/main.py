@@ -221,72 +221,142 @@ class JumpApp(QWidget):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setAlignment(Qt.AlignCenter)
+        layout.setContentsMargins(50, 50, 50, 50)
 
-        self.selection_title = QLabel("PLAYER 1: SELECT CHARACTER")
-        self.selection_title.setStyleSheet("font-size: 32px; font-weight: bold; color: #ffffff; margin-bottom: 40px;")
+        self.selection_title = QLabel("CHARACTER SELECTION")
+        self.selection_title.setStyleSheet("font-size: 48px; font-weight: bold; color: #00f2ff; margin-bottom: 50px;")
         self.selection_title.setAlignment(Qt.AlignCenter)
-        
-        char_layout = QHBoxLayout()
-        char_layout.setSpacing(50)
-        char_layout.setAlignment(Qt.AlignCenter)
-
-        # Male Character Card
-        btn_male = QPushButton()
-        btn_male.setFixedSize(220, 280)
-        btn_male.setObjectName("charBtn")
-        m_layout = QVBoxLayout(btn_male)
-        m_img = QLabel()
-        m_img.setPixmap(QPixmap(os.path.join(IMAGE_DIR, "cowok", "neutral.png")).scaled(160, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        m_img.setAlignment(Qt.AlignCenter)
-        m_text = QLabel("COWOK")
-        m_text.setStyleSheet("font-weight: bold; font-size: 18px; background: transparent;")
-        m_text.setAlignment(Qt.AlignCenter)
-        m_layout.addWidget(m_img)
-        m_layout.addWidget(m_text)
-        btn_male.clicked.connect(lambda: self.handle_char_selection("cowok"))
-
-        # Female Character Card
-        btn_female = QPushButton()
-        btn_female.setFixedSize(220, 280)
-        btn_female.setObjectName("charBtn")
-        f_layout = QVBoxLayout(btn_female)
-        f_img = QLabel()
-        f_img.setPixmap(QPixmap(os.path.join(IMAGE_DIR, "cewek", "neutral.jpeg")).scaled(160, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        f_img.setAlignment(Qt.AlignCenter)
-        f_text = QLabel("CEWEK")
-        f_text.setStyleSheet("font-weight: bold; font-size: 18px; background: transparent;")
-        f_text.setAlignment(Qt.AlignCenter)
-        f_layout.addWidget(f_img)
-        f_layout.addWidget(f_text)
-        btn_female.clicked.connect(lambda: self.handle_char_selection("cewek"))
-
-        char_layout.addWidget(btn_male)
-        char_layout.addWidget(btn_female)
-        
         layout.addWidget(self.selection_title)
-        layout.addLayout(char_layout)
+        
+        panels_layout = QHBoxLayout()
+        panels_layout.setSpacing(60)
+        panels_layout.setAlignment(Qt.AlignCenter)
+        
+        # Player 1 Panel
+        self.p1_panel = self.create_player_panel(1)
+        panels_layout.addWidget(self.p1_panel)
+        
+        # VS Text
+        self.vs_label = QLabel("VS")
+        self.vs_label.setStyleSheet("font-size: 64px; font-weight: bold; color: rgba(255,255,255,0.1);")
+        panels_layout.addWidget(self.vs_label)
+        
+        # Player 2 Panel
+        self.p2_panel = self.create_player_panel(2)
+        panels_layout.addWidget(self.p2_panel)
+        
+        layout.addLayout(panels_layout)
+        
+        # Start Button
+        self.btn_start_game = QPushButton("START RACE")
+        self.btn_start_game.setObjectName("modeBtn") 
+        self.btn_start_game.setFixedSize(320, 70)
+        self.btn_start_game.clicked.connect(lambda: self.enter_game(self.game_mode))
+        
+        layout.addSpacing(50)
+        layout.addWidget(self.btn_start_game, 0, Qt.AlignHCenter)
         
         return page
 
+    def create_player_panel(self, player_num):
+        panel = QWidget()
+        panel.setObjectName("selectionPanel")
+        panel.setFixedSize(450, 420)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setAlignment(Qt.AlignCenter)
+        
+        title = QLabel(f"PLAYER {player_num}" if player_num == 1 else "PLAYER 2")
+        title.setStyleSheet("font-size: 28px; font-weight: bold; color: #ffffff; margin-bottom: 20px;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        char_layout = QHBoxLayout()
+        char_layout.setSpacing(30)
+        
+        # Male
+        btn_male = QPushButton()
+        btn_male.setFixedSize(170, 230)
+        btn_male.setObjectName("charBtn")
+        m_vbox = QVBoxLayout(btn_male)
+        m_img = QLabel()
+        m_img.setPixmap(QPixmap(os.path.join(IMAGE_DIR, "cowok", "neutral.png")).scaled(110, 110, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        m_img.setAlignment(Qt.AlignCenter)
+        m_text = QLabel("COWOK")
+        m_text.setStyleSheet("font-weight: bold; font-size: 16px; background: transparent; color: white;")
+        m_text.setAlignment(Qt.AlignCenter)
+        m_vbox.addWidget(m_img)
+        m_vbox.addWidget(m_text)
+        btn_male.clicked.connect(lambda: self.select_gender(player_num, "cowok"))
+        
+        # Female
+        btn_female = QPushButton()
+        btn_female.setFixedSize(170, 230)
+        btn_female.setObjectName("charBtn")
+        f_vbox = QVBoxLayout(btn_female)
+        f_img = QLabel()
+        f_img.setPixmap(QPixmap(os.path.join(IMAGE_DIR, "cewek", "neutral.jpeg")).scaled(110, 110, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        f_img.setAlignment(Qt.AlignCenter)
+        f_text = QLabel("CEWEK")
+        f_text.setStyleSheet("font-weight: bold; font-size: 16px; background: transparent; color: white;")
+        f_text.setAlignment(Qt.AlignCenter)
+        f_vbox.addWidget(f_img)
+        f_vbox.addWidget(f_text)
+        btn_female.clicked.connect(lambda: self.select_gender(player_num, "cewek"))
+        
+        char_layout.addWidget(btn_male)
+        char_layout.addWidget(btn_female)
+        layout.addLayout(char_layout)
+        
+        for btn in [btn_male, btn_female]:
+            shadow = QGraphicsDropShadowEffect()
+            shadow.setBlurRadius(20)
+            shadow.setColor(QColor(0, 0, 0, 150))
+            shadow.setOffset(0, 6)
+            btn.setGraphicsEffect(shadow)
+
+        if player_num == 1:
+            self.p1_btns = {"cowok": btn_male, "cewek": btn_female}
+        else:
+            self.p2_btns = {"cowok": btn_male, "cewek": btn_female}
+            self.p2_title = title
+            
+        return panel
+
+    def select_gender(self, player_num, gender):
+        self.load_player_assets(player_num, gender)
+        
+        btns = self.p1_btns if player_num == 1 else self.p2_btns
+        for g, btn in btns.items():
+            btn.setObjectName("charBtnActive" if g == gender else "charBtn")
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+            
+        if player_num == 1 and getattr(self, 'game_mode', 'PVP') == "AI":
+            ai_gender = "cewek" if gender == "cowok" else "cowok"
+            self.load_player_assets(2, ai_gender)
+            for g, btn in self.p2_btns.items():
+                btn.setObjectName("charBtnActive" if g == ai_gender else "charBtn")
+                btn.style().unpolish(btn)
+                btn.style().polish(btn)
+
     def start_selection(self, mode):
         self.game_mode = mode
-        self.selecting_player = 1
-        self.selection_title.setText("PLAYER 1: SELECT CHARACTER")
-        self.stacked_widget.setCurrentWidget(self.selection_page)
-
-    def handle_char_selection(self, gender):
-        self.load_player_assets(self.selecting_player, gender)
         
-        if self.game_mode == "PVP" and self.selecting_player == 1:
-            self.selecting_player = 2
-            self.selection_title.setText("PLAYER 2: SELECT CHARACTER")
+        self.vs_label.setVisible(True)
+        self.p2_panel.setVisible(True)
+        
+        if mode == "PVP":
+            self.p2_title.setText("PLAYER 2")
+            for btn in self.p2_btns.values(): btn.setEnabled(True)
+            self.select_gender(1, "cowok")
+            self.select_gender(2, "cewek")
         else:
-            # If AI, Player 2 is default cowok if Player 1 is cewek, or vice-versa (optional logic)
-            if self.game_mode == "AI":
-                ai_gender = "cewek" if gender == "cowok" else "cowok"
-                self.load_player_assets(2, ai_gender)
+            self.p2_title.setText("AI (AUTO)")
+            for btn in self.p2_btns.values(): btn.setEnabled(False)
+            self.select_gender(1, "cowok")
             
-            self.enter_game(self.game_mode)
+        self.stacked_widget.setCurrentWidget(self.selection_page)
 
     def enter_game(self, mode):
         self.game_mode = mode
@@ -399,9 +469,14 @@ class JumpApp(QWidget):
                 border: 2px solid rgba(255, 255, 255, 0.3);
             }
             QPushButton#charBtnActive {
-                background-color: rgba(0, 242, 255, 0.1);
+                background-color: rgba(0, 242, 255, 0.15);
                 border: 3px solid #00f2ff;
                 border-radius: 20px;
+            }
+            #selectionPanel {
+                background-color: rgba(255, 255, 255, 0.03);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 25px;
             }
         """)
 
