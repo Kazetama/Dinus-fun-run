@@ -247,16 +247,37 @@ class JumpApp(QWidget):
         
         layout.addLayout(panels_layout)
         
+        # Action Buttons Layout
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(20)
+        btn_layout.setAlignment(Qt.AlignCenter)
+
+        # Back Button
+        self.btn_back_menu = QPushButton("🚪 BACK")
+        self.btn_back_menu.setObjectName("modeBtn") 
+        self.btn_back_menu.setFixedSize(200, 70)
+        self.btn_back_menu.setStyleSheet("""
+            QPushButton { background-color: #a4b0be; border: 3px solid #747d8c; }
+            QPushButton:hover { background-color: #747d8c; border: 3px solid #57606f; }
+        """)
+        self.btn_back_menu.clicked.connect(self.back_to_menu)
+
         # Start Button
         self.btn_start_game = QPushButton("START RACE")
         self.btn_start_game.setObjectName("modeBtn") 
         self.btn_start_game.setFixedSize(320, 70)
         self.btn_start_game.clicked.connect(lambda: self.enter_game(self.game_mode))
         
+        btn_layout.addWidget(self.btn_back_menu)
+        btn_layout.addWidget(self.btn_start_game)
+        
         layout.addSpacing(50)
-        layout.addWidget(self.btn_start_game, 0, Qt.AlignHCenter)
+        layout.addLayout(btn_layout)
         
         return page
+
+    def back_to_menu(self):
+        self.stacked_widget.setCurrentWidget(self.menu_page)
 
     def create_player_panel(self, player_num):
         panel = QWidget()
@@ -913,25 +934,37 @@ class JumpApp(QWidget):
                     self.winner = "AI OPPONENT WIN" if getattr(self, 'game_mode', 'PVP') == "AI" else "PLAYER 2 WIN"
 
             if self.winner:
-                left_pos = (int(w * 0.25), int(h * 0.5))
-                right_pos = (int(w * 0.75), int(h * 0.5))
+                # Slightly lower the character to make room for text above
+                left_pos = (int(w * 0.25), int(h * 0.55))
+                right_pos = (int(w * 0.75), int(h * 0.55))
+                char_size = 400
+
+                def draw_status_text(text, center_pos, is_win):
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    scale = 2.5
+                    thickness = 6
+                    
+                    text_size = cv2.getTextSize(text, font, scale, thickness)[0]
+                    tx = center_pos[0] - text_size[0] // 2
+                    ty = center_pos[1] - (char_size // 2) - 10
+                    
+                    # Colored border/shadow to differentiate WIN/LOSE
+                    shadow_color = (0, 255, 0) if is_win else (0, 0, 255)
+                    cv2.putText(frame, text, (tx, ty), font, scale, shadow_color, thickness + 8)
+                    cv2.putText(frame, text, (tx, ty), font, scale, text_color, thickness)
 
                 if self.winner == "PLAYER 1 WIN":
-                    frame = self.overlay_icon(frame, self.p1_data["happy"], *left_pos, 260)
-                    frame = self.overlay_icon(frame, self.p2_data["sad"], *right_pos, 260)
+                    frame = self.overlay_icon(frame, self.p1_data["happy"], *left_pos, char_size)
+                    frame = self.overlay_icon(frame, self.p2_data["sad"], *right_pos, char_size)
 
-                    cv2.putText(frame, "WIN", left_pos,
-                                cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 4)
-                    cv2.putText(frame, "LOSE", right_pos,
-                                cv2.FONT_HERSHEY_SIMPLEX, 2, (100, 100, 100), 4)
+                    draw_status_text("WIN", left_pos, True)
+                    draw_status_text("LOSE", right_pos, False)
                 else:
-                    frame = self.overlay_icon(frame, self.p1_data["sad"], *left_pos, 260)
-                    frame = self.overlay_icon(frame, self.p2_data["happy"], *right_pos, 260)
+                    frame = self.overlay_icon(frame, self.p1_data["sad"], *left_pos, char_size)
+                    frame = self.overlay_icon(frame, self.p2_data["happy"], *right_pos, char_size)
 
-                    cv2.putText(frame, "LOSE", left_pos,
-                                cv2.FONT_HERSHEY_SIMPLEX, 2, (100, 100, 100), 4)
-                    cv2.putText(frame, "WIN", right_pos,
-                                cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 4)
+                    draw_status_text("LOSE", left_pos, False)
+                    draw_status_text("WIN", right_pos, True)
 
         cv2.line(frame, (mid,0), (mid,h), (255,255,255), 2)
 
