@@ -105,6 +105,8 @@ class JumpApp(QWidget):
         # AI Variables
         self.ai_last_jump_time = 0
         self.ai_target_cooldown = 1.0
+        self.ai_jump_anim_start = 0
+        self.ai_jump_duration = 0.6 # Durasi animasi lompat (detik)
 
         # Assets
         self.snd_go = QSoundEffect()
@@ -165,7 +167,8 @@ class JumpApp(QWidget):
         
         data = self.p1_data if player_num == 1 else self.p2_data
         data["gender"] = gender
-        data["neutral"] = QPixmap(os.path.join(base_path, f"neutral.{ext}"))
+        data["neutral_path"] = os.path.join(base_path, f"neutral.{ext}")
+        data["neutral"] = QPixmap(data["neutral_path"])
         data["happy"] = os.path.join(base_path, f"happy.{ext}")
         data["sad"] = os.path.join(base_path, f"sad.{ext}")
         
@@ -690,6 +693,7 @@ class JumpApp(QWidget):
                 self.snd_jump.play()
                 self.update_race()
                 self.ai_last_jump_time = now
+                self.ai_jump_anim_start = now # Trigger animasi visual
                 
                 # Dynamic Difficulty (Rubber Banding)
                 diff = self.left_score - self.right_score
@@ -899,6 +903,32 @@ class JumpApp(QWidget):
         # adaptive text color logic
         avg_brightness = cv2.mean(frame)[0]
         text_color = (0, 0, 0) if avg_brightness > 127 else (255, 255, 255)
+
+        # RENDER AI CHARACTER IN VS AI MODE (Filling the right side)
+        if getattr(self, 'game_mode', 'PVP') == "AI" and not self.winner:
+            ai_x = int(w * 0.75)
+            ai_y_base = int(h * 0.6)
+            ai_y = ai_y_base
+            
+            ai_img = self.p2_data["neutral_path"]
+            
+            # Animasi Lompat Parabola
+            time_since_jump = time.time() - self.ai_jump_anim_start
+            if time_since_jump < self.ai_jump_duration:
+                # Progress 0.0 -> 1.0
+                t = time_since_jump / self.ai_jump_duration
+                # Rumus parabola: y = 4 * height * t * (1-t)
+                jump_height = 150 
+                offset = int(jump_height * 4 * t * (1 - t))
+                ai_y -= offset
+                ai_img = self.p2_data["happy"] # Ganti muka jadi seneng pas lompat
+            
+            # Gambar karakter AI
+            frame = self.overlay_icon(frame, ai_img, ai_x, ai_y, 300)
+            
+            # Label AI
+            cv2.putText(frame, "AI OPPONENT", (ai_x - 80, ai_y_base + 180),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, text_color, 2)
 
         # countdown
         if self.countdown is not None:
